@@ -5,6 +5,7 @@ from uuid import uuid4
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, create_engine, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
+from sqlalchemy.pool import NullPool
 
 from .config import settings
 
@@ -89,7 +90,11 @@ def make_engine(url):
         url = url.replace("postgres://", "postgresql+psycopg://", 1)
     elif url.startswith("postgresql://"):
         url = url.replace("postgresql://", "postgresql+psycopg://", 1)
-    engine = create_engine(url, connect_args={"check_same_thread": False, "timeout": 30} if url.startswith("sqlite") else {}, pool_pre_ping=True)
+    options = {}
+    if settings.deployment_mode == "free" and url.startswith("postgresql"):
+        # Close idle connections so a free external database can scale to zero.
+        options = {"poolclass": NullPool, "connect_args": {"connect_timeout": 20}}
+    engine = create_engine(url, connect_args={"check_same_thread": False, "timeout": 30} if url.startswith("sqlite") else options.pop("connect_args", {}), pool_pre_ping=True, **options)
     return engine
 
 

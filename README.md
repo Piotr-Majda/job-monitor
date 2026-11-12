@@ -73,37 +73,74 @@ A digest outbox stores the recipient, immutable content, and provider idempotenc
 
 Actual Gmail delivery has **not** been verified in this workspace because sender credentials and recipient configuration are absent. Mock-provider tests verify failure/retry bookkeeping, not inbox arrival.
 
-## Deploy on Render
+## Free cloud deployment (selected)
 
-`render.yaml` defines a web service, a background worker, and PostgreSQL in Frankfurt. It has been validated against Render's current public Blueprint schema. It requests **paid instance types**; review the live cost estimate in Render before applying it.
+The current `render.yaml` creates **one Free Render web service** in Frankfurt. There is no Render database, worker, cron job, or disk. PostgreSQL is hosted on a separate **Neon Free** account, and GitHub Actions runs scheduled collection and email independently of the sleeping web app.
 
-1. Put the contents of this project directory in a Git repository, with `render.yaml` at the repository root. Do not upload `.env`, `.venv`, or the local database.
-2. Connect the repository in Render and create a Blueprint from `render.yaml`.
-3. Review services and pricing, then deploy. Database schema initialization runs before web startup; PostgreSQL advisory locking also protects concurrent web/worker initialization.
-4. Open the generated HTTPS web URL. Read the generated `ADMIN_PASSWORD` from the web service's Environment settings and use it to sign in. Do not paste it into chat.
-5. On `scout-web`, set `EMAIL_FROM` to your authorized Resend sender and `RESEND_API_KEY` through secret environment settings. Set `EMAIL_TO` to your Gmail address in Render; it is intentionally blank in the public Blueprint. The worker references the web service's settings; sync the Blueprint and redeploy both services after changing shared values.
-6. Verify a real collection, check the dashboard's collection health, and verify a delivered test digest. The worker catches up a due daily search automatically on startup.
+Target recurring hosting cost: **USD 0 within provider free-tier quotas**, excluding a custom domain or optional paid upgrades. Hobby is a workspace plan, not a guarantee that every Render resource is free. Do not apply an old three-resource plan: re-plan the current repository commit first.
 
-Render's `postgres://` connection strings are normalized to the installed psycopg driver. The web process uses `RENDER_EXTERNAL_URL` as its HTTPS application URL; the worker references that same URL for email links. Email starts disabled until sender settings are provided. Automatic deploys are disabled in the blueprint to keep deployment explicit.
+### 1. External database
 
-Render is connected for this chat. Remote source repository access and sender secrets are still required to publish and validate this deployment. See `DEPLOYMENT.md` for current preparation state and the hosting estimate. A schema-valid blueprint is not proof of a running production service.
+Create a PostgreSQL project on Neon's **Free** plan, preferably in a European region near Frankfurt. Do not upgrade the account to a paid plan. Obtain a PostgreSQL connection string with TLS (`sslmode=require`) from the Neon console. Keep it private.
 
-## Other cloud hosts
+Configure the same connection string in two places:
 
-The intended deployment is a container-capable host with:
+- Render: the web service's `DATABASE_URL` secret environment variable. The Blueprint declares this with `sync: false` so it is never committed.
+- GitHub: repository Actions secret `DATABASE_URL`.
 
-- One web service, using the Dockerfile's default command and internal port 8000.
-- One background worker, using `python -m app.worker` from the same image.
-- One PostgreSQL database, shared by web and worker.
-- HTTPS ingress and a private dashboard password.
+The app creates its initial schema at startup under a PostgreSQL advisory lock. Both the web app and scheduled runs use that shared database. Free cloud mode refuses SQLite so a missing connection string cannot silently lose jobs on Render's ephemeral filesystem.
 
-A small VPS with Docker Compose and a TLS reverse proxy is a straightforward option. A managed container host with a web service, worker, and PostgreSQL also fits. No provider, paid resources, or production domain have been provisioned by this implementation.
+Neon's published Free plan is ongoing, not a trial, but its compute, storage, and transfer limits apply. It scales down after inactivity. Monitor quotas in the provider console; do not assume the service can grow indefinitely for free.
 
-Configure both processes with the same `DATABASE_URL` (`postgresql+psycopg://...`), `ENVIRONMENT=production`, `APP_URL=https://your-domain`, `ADMIN_PASSWORD` (16+ characters), and `SESSION_SECRET` (32+ random characters), plus collection/email settings. Initialize schema with `python -m app.cli init` before starting processes. Use a TLS reverse proxy or the host's HTTPS ingress; the Python container itself serves HTTP internally.
+### 2. Render dashboard
 
-For a VPS, keep Compose's loopback binding and proxy HTTPS to port 8000. Configure database backups, monitor worker/container restarts, and verify one collection and one actual email after deployment. `GET /health` checks database connectivity but does not establish collector or email health; those are shown separately in the dashboard.
+1. Link https://github.com/Piotr-Majda/job-monitor to Render using the existing Blueprint or create one from root `render.yaml`.
+2. Re-plan and verify **one web service on plan `free`**, with no paid datastore or worker.
+3. Supply `DATABASE_URL` through Render's secure Environment settings or the required Blueprint input. Review the actual plan before applying it.
+4. Deploy. Render generates `ADMIN_PASSWORD` and `SESSION_SECRET`; retrieve the password privately from the service's Environment page to sign in.
+5. Copy the resulting HTTPS service URL. In GitHub repository **Settings → Secrets and variables → Actions → Variables**, set `SCOUT_APP_URL` to that URL.
 
-The schema is an initial prototype with `create_all`, not a versioned migration system. Add reviewed migrations before changing a deployed database schema. Do not delete production data to upgrade.
+A Free Render service sleeps after 15 minutes without traffic and can take about a minute to wake. No keep-alive traffic is required because scheduled searches run outside Render. Health checks use `/health`, which checks the web process without querying Neon, so frequent probes do not consume database compute. Schema creation is checked at startup; signed-in operators can use `/database-health` for an explicit database check.
+
+Automatic deploys and Blueprint auto-sync remain disabled. There is no live production URL until deployment completes.
+
+### 3. Scheduled searches and email
+
+The workflow `.github/workflows/job-monitor.yml` runs `python -m app.scheduled` and then exits. Its schedule is:
+
+- **06:00 Europe/Warsaw:** collect due jobs.
+- **07:00 Europe/Warsaw:** send a due digest.
+- **08:17 Europe/Warsaw:** recovery check; already completed jobs and sent digests are not repeated.
+
+The GitHub schedule includes the IANA timezone for daylight-saving changes. The Python scheduler independently checks Warsaw dates/times, collection history, and notification history. Manual **Run workflow** uses the same due-work check.
+
+Required GitHub configuration:
+
+| Type | Name | Value |
+|---|---|---|
+| Actions secret | `DATABASE_URL` | The same Neon connection string used by Render |
+| Actions variable | `SCOUT_APP_URL` | Deployed HTTPS dashboard URL |
+| Actions secret | `EMAIL_TO` | Your Gmail recipient address |
+| Actions secret | `EMAIL_FROM` | An authorized Resend sender |
+| Actions secret | `RESEND_API_KEY` | Resend API key |
+
+Do not give Actions the dashboard password or session secret. GitHub's built-in workflow token has only `contents: read`; it is not used to expose the database through a public API.
+
+Until `DATABASE_URL` and `SCOUT_APP_URL` are configured, the workflow exits with a **setup-pending notice** and performs no collection. This successful setup check is not a successful search. Without email secrets, searches can run but no mail is sent; the workflow logs a notice. Database and provider errors produce a failed scheduled command without logging secret values.
+
+Email configuration belongs in **GitHub Actions secrets** for this variant, not in the web service. The dashboard reads delivery outcomes from the shared database. Receiving mail in Gmail does not require inbox access.
+
+### Free scheduling limitations
+
+GitHub Actions schedules are **best-effort**: runs can be delayed or dropped. Public-repository scheduled workflows are disabled after **60 days without repository activity** and must be re-enabled. The 08:17 recovery check reduces the effect of one missed morning run but cannot guarantee daily execution. Check collection timestamps and enable GitHub failure notifications. Changing repository schedule variables does not edit cron expressions; edit the workflow if desired delivery times change substantially.
+
+Standard GitHub-hosted runners in a public repository are free under GitHub's current policy; quotas, provider policies, and prices can change. Review usage rather than adding a paid runner or upgrading the database.
+
+### Email verification and backups
+
+Configure a Resend sender eligible for its free allowance and send one test digest to the configured Gmail address. No live inbox delivery has been verified yet. Database persistence, a real cloud scan, and a sent digest must all be checked before declaring the cloud iteration complete. Use provider-supported database export/restore for backups and monitor the database's free retention limits.
+
+The standalone local worker and Docker Compose configuration remain available for local development; do not start a paid cloud worker for this free deployment.
 
 ## Collection behavior and limits
 

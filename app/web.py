@@ -83,6 +83,14 @@ async def security_headers(request, call_next):
 
 @app.get("/health")
 def health():
+    # Frequent platform probes must not keep a serverless database awake.
+    # Startup verifies the database; an authenticated on-demand check is below.
+    return {"status": "ok"}
+
+
+@app.get("/database-health")
+def database_health(request: Request):
+    require_user(request)
     with Session(engine) as session:
         session.execute(select(1))
     return {"status": "ok"}

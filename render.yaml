@@ -1,32 +1,24 @@
-# Paid resources. Review Render's current cost estimate before applying.
-# This file belongs at the root of a repository containing this project.
-databases:
-  - name: scout-db
-    region: frankfurt
-    plan: 0.1c-256mb
-    databaseName: scout
-    user: scout
-    postgresMajorVersion: "17"
-    diskSizeGB: 5
-    ipAllowList: []
-
+# Free hobby deployment: no Render database, worker, cron, or disk.
+# Provide a free external PostgreSQL connection string through secret settings.
+# GitHub Actions performs collection/email independently of the sleeping web app.
 services:
   - type: web
     name: scout-web
     runtime: docker
     region: frankfurt
-    plan: 0.5c-512mb
+    plan: free
     numInstances: 1
     autoDeployTrigger: "off"
     healthCheckPath: /health
-    preDeployCommand: python -m app.cli init
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: scout-db
-          property: connectionString
+        sync: false
       - key: ENVIRONMENT
         value: production
+      - key: DEPLOYMENT_MODE
+        value: free
+      - key: EMAIL_DELIVERY_EXTERNAL
+        value: "true"
       - key: ADMIN_PASSWORD
         generateValue: true
       - key: SESSION_SECRET
@@ -35,65 +27,3 @@ services:
         value: "06:00"
       - key: DIGEST_TIME
         value: "07:00"
-      - key: EMAIL_TO
-        value: ""
-      - key: EMAIL_FROM
-        value: ""
-      - key: RESEND_API_KEY
-        value: ""
-
-  - type: worker
-    name: scout-worker
-    runtime: docker
-    region: frankfurt
-    plan: 0.5c-512mb
-    numInstances: 1
-    autoDeployTrigger: "off"
-    dockerCommand: python -m app.worker
-    envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: scout-db
-          property: connectionString
-      - key: ENVIRONMENT
-        value: production
-      - key: APP_URL
-        fromService:
-          type: web
-          name: scout-web
-          envVarKey: RENDER_EXTERNAL_URL
-      - key: ADMIN_PASSWORD
-        fromService:
-          type: web
-          name: scout-web
-          envVarKey: ADMIN_PASSWORD
-      - key: SESSION_SECRET
-        fromService:
-          type: web
-          name: scout-web
-          envVarKey: SESSION_SECRET
-      - key: SEARCH_TIME
-        fromService:
-          type: web
-          name: scout-web
-          envVarKey: SEARCH_TIME
-      - key: DIGEST_TIME
-        fromService:
-          type: web
-          name: scout-web
-          envVarKey: DIGEST_TIME
-      - key: EMAIL_TO
-        fromService:
-          type: web
-          name: scout-web
-          envVarKey: EMAIL_TO
-      - key: EMAIL_FROM
-        fromService:
-          type: web
-          name: scout-web
-          envVarKey: EMAIL_FROM
-      - key: RESEND_API_KEY
-        fromService:
-          type: web
-          name: scout-web
-          envVarKey: RESEND_API_KEY

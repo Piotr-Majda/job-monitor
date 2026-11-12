@@ -26,11 +26,16 @@ async def tick():
         sent = session.scalar(select(Delivery).where(Delivery.status == "sent").order_by(Delivery.sent_at.desc()).limit(1))
         sent_today = bool(sent and sent.sent_at and sent.sent_at.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(settings.timezone)).date() == local.date())
     if current >= search_due and not ran_today:
-        logging.info("Collection: %s", await run_collection())
+        result = await run_collection()
+        logging.info("Collection: %s", result)
+        if result["status"] in ("failed", "partial"):
+            raise RuntimeError("Collection incomplete; inspect collection health on the dashboard")
     if current >= digest_due and not sent_today:
         result = await send_digest()
         if result["status"] not in ("empty", "not_configured"):
             logging.info("Digest: %s", result["status"])
+        if result["status"] in ("failed", "needs_review"):
+            raise RuntimeError("Email delivery needs attention; inspect dashboard delivery history")
 
 
 async def main():
@@ -39,8 +44,8 @@ async def main():
     scheduler = AsyncIOScheduler(timezone=settings.timezone)
     scheduler.add_job(tick, "interval", minutes=5, max_instances=1, coalesce=True)
     scheduler.start()
-    await tick()  # Catch up after startup; never depends on a browser tab being open.
     try:
+        await tick()  # Catch up after startup; never depends on a browser tab being open.
         await asyncio.Event().wait()
     finally:
         scheduler.shutdown(wait=False)

@@ -1,3 +1,5 @@
+> Deployment update: the user selected the free variant. The current root Blueprint contains only a Free Render dashboard; Neon Free PostgreSQL and GitHub Actions replace the paid database and worker. See README.md and DEPLOYMENT.md for current setup. The earlier multi-service deployment below is historical and must not be applied.
+
 # Iteration 1 implementation record
 
 Date: 12 November 2026. Source: Just Join IT, replacing LinkedIn by user agreement.
@@ -33,7 +35,7 @@ The test suite emits one upstream Starlette TestClient deprecation warning about
 
 During Docker verification, intermediate images exhausted the small workspace disk. Task-created intermediate images/cache and test containers were removed, and the final tests and container collection then passed. This was an execution-workspace limit, not a production sizing measurement.
 
-## Still required before declaring the cloud iteration complete
+## Earlier verification and outstanding cloud checks
 
 1. Render is now connected and My Workspace is confirmed. Source is now published at https://github.com/Piotr-Majda/job-monitor. The Blueprint exists; account setup, successful planning, review, and approval remain before deployment.
 2. Configure a Resend account, API key, and authorized sender through secret environment settings. Sender keys are absent; no live email was sent.

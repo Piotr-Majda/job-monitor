@@ -7,7 +7,8 @@ ROOT = Path(__file__).resolve().parent.parent
 
 @dataclass
 class Settings:
-    database_url: str = field(default_factory=lambda: os.getenv("DATABASE_URL", f"sqlite:///{ROOT}/data/jobs.db"))
+    database_url: str = field(default_factory=lambda: os.getenv("DATABASE_URL") or f"sqlite:///{ROOT}/data/jobs.db")
+    deployment_mode: str = field(default_factory=lambda: os.getenv("DEPLOYMENT_MODE", "local"))
     app_url: str = field(default_factory=lambda: (os.getenv("APP_URL") or os.getenv("RENDER_EXTERNAL_URL") or "http://localhost:8000").rstrip("/"))
     admin_password: str = field(default_factory=lambda: os.getenv("ADMIN_PASSWORD", ""))
     session_secret: str = field(default_factory=lambda: os.getenv("SESSION_SECRET", ""))
@@ -21,20 +22,23 @@ class Settings:
     email_to: str = field(default_factory=lambda: os.getenv("EMAIL_TO", ""))
     email_from: str = field(default_factory=lambda: os.getenv("EMAIL_FROM", ""))
     resend_api_key: str = field(default_factory=lambda: os.getenv("RESEND_API_KEY", ""))
+    email_external: bool = field(default_factory=lambda: os.getenv("EMAIL_DELIVERY_EXTERNAL", "false").lower() == "true")
 
     @property
     def email_ready(self):
         return bool(self.email_to and self.email_from and self.resend_api_key)
 
-    def validate(self):
+    def validate(self, require_web_security=True):
         for value in (self.search_time, self.digest_time):
             hour, minute = map(int, value.split(":"))
             if not (0 <= hour <= 23 and 0 <= minute <= 59):
                 raise ValueError("Schedules must use HH:MM")
         if not (1 <= self.max_pages <= 20 and 1 <= self.max_jobs <= 1000 and self.request_delay >= 1):
             raise ValueError("Invalid collection limits; delay must be at least one second")
+        if self.deployment_mode == "free" and not self.database_url.startswith(("postgres://", "postgresql://", "postgresql+psycopg://")):
+            raise ValueError("Free hosting requires an external PostgreSQL DATABASE_URL; ephemeral SQLite is not allowed")
         if self.production:
-            if len(self.admin_password) < 16 or len(self.session_secret) < 32:
+            if require_web_security and (len(self.admin_password) < 16 or len(self.session_secret) < 32):
                 raise ValueError("Production requires ADMIN_PASSWORD (16+ characters) and SESSION_SECRET (32+)")
             if not self.app_url.startswith("https://"):
                 raise ValueError("Production requires an HTTPS APP_URL")

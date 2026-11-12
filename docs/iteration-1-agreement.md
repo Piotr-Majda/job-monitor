@@ -4,6 +4,8 @@ Date: 12 November 2026
 Status: Product scope agreed; local prototype implemented. Render deployment and live email verification remain pending. See job-monitor/IMPLEMENTATION.md for evidence and limits.
 Purpose: Record the discussion and guide implementation. This document does not authorize job submissions or deployment to a paid service.
 
+Hosting change agreed on 12 November 2026: target USD 0 within free quotas using a Free Render web service, external Neon Free PostgreSQL, and scheduled GitHub Actions. Accept dashboard cold starts and best-effort schedules; the paid web/worker/database plan is superseded.
+
 Source change agreed on 12 November 2026: start with Just Join IT instead of LinkedIn, using public pages without login. All other first-iteration requirements remain in scope.
 
 ## 1. Problem and objective

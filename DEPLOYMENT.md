@@ -1,43 +1,33 @@
-# Render deployment preparation
+# Current deployment: free hobby variant
 
 Updated: 12 November 2026.
 
-## Confirmed
+The user selected the **free variant**, replacing the previously planned USD 21.50/month multi-service configuration. No paid resources were approved or deployed.
 
-- Render is connected.
-- The user selected **My Workspace**.
-- The selected workspace currently has no existing services or PostgreSQL databases, so this deployment will not replace an existing application.
-- Source is committed and published on branch `main` at https://github.com/Piotr-Majda/job-monitor.
-- `.env`, the collected job database, and dashboard screenshots are excluded from Git.
+## Selected resources
 
-## Prepared infrastructure
+- One Free Render web service in Frankfurt, using the root `render.yaml`.
+- An external Neon **Free** PostgreSQL project, shared by the dashboard and scheduled tasks.
+- GitHub Actions in the public repository for 06:00 collection, 07:00 email, and an 08:17 recovery check, using Europe/Warsaw time.
+- Resend email delivery within its free allowance, once an authorized sender is configured.
 
-The root `render.yaml` requests these new resources in Frankfurt:
+Target recurring hosting cost is **USD 0 within free-tier limits**. The dashboard can cold-start, scheduled jobs can be delayed or dropped, and GitHub disables inactive public-repository schedules after 60 days.
 
-| Resource | Plan | Published base price checked 12 November 2026 |
-|---|---|---|
-| Web service | 0.5c-512mb | USD 7/month |
-| Background worker | 0.5c-512mb | USD 7/month |
-| PostgreSQL | 0.1c-256mb | USD 6/month |
-| Database storage | 5 GB | USD 1.50/month at USD 0.30/GB |
+## Source and account state
 
-Estimated base total: **USD 21.50/month**, before taxes, traffic/build overages, and any email-provider charges. Source: https://render.com/pricing. The actual Render plan and billing estimate take precedence.
+Repository: https://github.com/Piotr-Majda/job-monitor, branch `main`.
 
-This document is a preparation record, not approval to apply a deployment plan. The Render Blueprint workflow requires review and explicit authorization of its returned plan before approval.
+Render is connected and **My Workspace** is confirmed. The existing Blueprint must be re-planned against this commit before approval. Earlier plans with a database and worker are superseded; do not apply them.
 
-## Source and deployment status
+The Neon integration has been suggested but is not yet confirmed connected. The external database connection string must be provided privately to Render and GitHub Actions. Email sender secrets are still needed. No secrets or personal recipient address belong in this public repository.
 
-The source and root Blueprint are published in the public repository at https://github.com/Piotr-Majda/job-monitor. A clean initial history excludes local data, credentials, and personal email configuration. The recipient must be configured through deployment environment variables.
+## Deployment checklist
 
-The connected Render workflow has created the Blueprint definition. No paid resources or production deployment have been applied. Consult the Render Dashboard for current account requirements and plan status before proceeding.
+1. Connect Neon and create/select a project explicitly on the Free plan.
+2. Supply its TLS connection string privately as `DATABASE_URL` in Render and GitHub repository secrets.
+3. Review the new Render plan: exactly one Free web service, no paid database/worker/cron/disk.
+4. Apply only the reviewed, authorized plan; verify HTTPS login and database-backed dashboard data.
+5. Set GitHub variable `SCOUT_APP_URL` to the deployed URL, and configure recipient/sender/API-key secrets.
+6. Run the Actions workflow, verify real descriptions persist, and verify one actual email reaches Gmail.
 
-## Next actions
-
-1. Confirm the public source repository remains accessible to Render.
-2. Complete any account setup required by Render; keep secrets and payment details out of the repository and chat.
-3. Plan the existing Blueprint with automatic syncing disabled, then inspect the returned plan.
-4. Present the actual plan and request authorization to apply it, as required by Render's Blueprint tool.
-5. After authorization, approve, monitor deployment, and verify HTTPS authentication, database persistence, and real job collection.
-6. Configure Resend sender secrets without placing them in Git or chat, and verify delivery to your-address@gmail.com.
-
-Email is disabled until an authorized sender and API key are provided. No Gmail inbox access is needed.
+See README.md for detailed setup and provider limitations.

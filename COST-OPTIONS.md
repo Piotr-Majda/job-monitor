@@ -1,6 +1,6 @@
 # Lower-cost hosting options
 
-Checked against provider documentation on 12 November 2026. The original multi-service deployment has not been approved or deployed.
+Checked against provider documentation on 12 November 2026. The original multi-service deployment has not been approved or deployed. **Option A (free variant) is now selected.**
 
 ## Why the original plan costs about USD 21.50/month
 
@@ -37,7 +37,7 @@ This option keeps scheduling independent of whether the user has the dashboard o
 - Free web services sleep, so an in-process scheduler cannot provide dependable unattended execution.
 - Render cron services are billed separately, with a USD 1/month minimum per cron service. They can reduce worker cost, but do not make an all-Render deployment free indefinitely.
 
-Prices exclude taxes and usage overages. No lower-cost variant has been selected or deployed yet; do not apply the original three-resource plan if the intent is to use one of these alternatives.
+Prices exclude taxes and usage overages. The free variant is selected and prepared in the root Blueprint and GitHub workflow. It has not yet been deployed; do not apply the original three-resource plan.
 
 ## References
 
