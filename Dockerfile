@@ -14,5 +14,5 @@ COPY app ./app
 RUN useradd --create-home --uid 10001 scout && chmod -R a+rX /app && mkdir -p /app/data && chown scout:scout /app/data
 USER scout
 EXPOSE 8000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"
-CMD ["uvicorn", "app.web:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:'+os.getenv('PORT','8000')+'/health', timeout=3)"
+CMD ["python", "-m", "app.launch"]

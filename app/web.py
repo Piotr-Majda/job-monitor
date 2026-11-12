@@ -1,4 +1,6 @@
 import hmac
+import logging
+import os
 import secrets
 from contextlib import asynccontextmanager
 from datetime import timezone
@@ -10,10 +12,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
+from sqlalchemy.engine import make_url
 from starlette.middleware.sessions import SessionMiddleware
 
 from .config import ROOT, settings
-from .db import Delivery, Job, Match, Profile, Run, engine, init_db
+from .db import Base, Delivery, Job, Match, Profile, Run, engine, init_db
 from .services import reassess_profile
 
 
@@ -21,6 +24,10 @@ from .services import reassess_profile
 async def lifespan(app):
     settings.validate()
     init_db()
+    if settings.migration_read_only:
+        with Session(engine) as session:
+            counts = {table.name: session.scalar(select(func.count()).select_from(table)) for table in Base.metadata.sorted_tables}
+        logging.warning("Migration read-only mode; source row counts: %s", counts)
     yield
 
 
@@ -71,6 +78,9 @@ def context(request, **kwargs):
 
 @app.middleware("http")
 async def security_headers(request, call_next):
+    if settings.migration_read_only and request.method not in ("GET", "HEAD", "OPTIONS") and request.url.path not in ("/login", "/logout"):
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"detail": "Database migration in progress. Review actions are temporarily paused."}, status_code=503)
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
@@ -85,7 +95,9 @@ async def security_headers(request, call_next):
 def health():
     # Frequent platform probes must not keep a serverless database awake.
     # Startup verifies the database; an authenticated on-demand check is below.
-    return {"status": "ok"}
+    host = make_url(settings.database_url).host or ""
+    return {"status": "ok", "database_provider": "neon" if host.endswith(".neon.tech") else "other",
+            "migration_read_only": settings.migration_read_only, "revision": os.getenv("RENDER_GIT_COMMIT", "local")[:12]}
 
 
 @app.get("/database-health")

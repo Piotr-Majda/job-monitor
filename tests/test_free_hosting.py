@@ -43,7 +43,7 @@ def test_platform_probes_do_not_wake_serverless_database(monkeypatch):
     monkeypatch.setattr(web, "Session", ForbiddenSession)
     with TestClient(web.app) as client:
         for _ in range(3):
-            assert client.get("/health").json() == {"status": "ok"}
+            assert client.get("/health").json()["status"] == "ok"
         assert client.get("/database-health").status_code == 401
 
 

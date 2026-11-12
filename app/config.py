@@ -23,6 +23,7 @@ class Settings:
     email_from: str = field(default_factory=lambda: os.getenv("EMAIL_FROM", ""))
     resend_api_key: str = field(default_factory=lambda: os.getenv("RESEND_API_KEY", ""))
     email_external: bool = field(default_factory=lambda: os.getenv("EMAIL_DELIVERY_EXTERNAL", "false").lower() == "true")
+    migration_read_only: bool = field(default_factory=lambda: os.getenv("MIGRATION_READ_ONLY", "false").lower() == "true")
 
     @property
     def email_ready(self):
