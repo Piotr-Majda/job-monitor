@@ -1,4 +1,6 @@
 import hmac
+import asyncio
+import json
 import logging
 import os
 import secrets
@@ -7,7 +9,7 @@ from datetime import timezone
 from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Form, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import case, func, select
@@ -18,6 +20,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from .config import ROOT, settings
 from .db import Base, Delivery, Job, Match, Profile, Run, engine, init_db
 from .services import reassess_profile
+from .oidc import verify_workflow_token
 
 
 @asynccontextmanager
@@ -106,6 +109,34 @@ def database_health(request: Request):
     with Session(engine) as session:
         session.execute(select(1))
     return {"status": "ok"}
+
+
+@app.post("/internal/run-due")
+async def scheduled_invocation(request: Request):
+    await asyncio.to_thread(verify_workflow_token, request.headers.get("authorization", ""))
+    from contextlib import suppress
+    from .worker import tick
+
+    async def progress():
+        task = asyncio.create_task(tick())
+        try:
+            yield json.dumps({"status": "started"}) + "\n"
+            while not task.done():
+                done, _ = await asyncio.wait({task}, timeout=10)
+                if not done:
+                    yield json.dumps({"status": "running"}) + "\n"
+            await task
+            yield json.dumps({"status": "completed", "email_configured": settings.email_ready}) + "\n"
+        except Exception as error:
+            logging.error("Scheduled invocation failed (%s)", type(error).__name__)
+            yield json.dumps({"status": "failed"}) + "\n"
+        finally:
+            if not task.done():
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await task
+
+    return StreamingResponse(progress(), media_type="application/x-ndjson", headers={"X-Accel-Buffering": "no"})
 
 
 @app.get("/login")

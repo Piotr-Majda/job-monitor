@@ -24,6 +24,8 @@ class Settings:
     resend_api_key: str = field(default_factory=lambda: os.getenv("RESEND_API_KEY", ""))
     email_external: bool = field(default_factory=lambda: os.getenv("EMAIL_DELIVERY_EXTERNAL", "false").lower() == "true")
     migration_read_only: bool = field(default_factory=lambda: os.getenv("MIGRATION_READ_ONLY", "false").lower() == "true")
+    scheduler_repository: str = field(default_factory=lambda: os.getenv("SCHEDULER_REPOSITORY", ""))
+    scheduler_repository_id: str = field(default_factory=lambda: os.getenv("SCHEDULER_REPOSITORY_ID", ""))
 
     @property
     def email_ready(self):

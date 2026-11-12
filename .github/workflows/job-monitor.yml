@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: personal-job-monitor
@@ -23,42 +24,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      APP_URL: ${{ vars.SCOUT_APP_URL }}
-      EMAIL_TO: ${{ secrets.EMAIL_TO }}
-      EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
-      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-      SEARCH_TIME: ${{ vars.SEARCH_TIME || '06:00' }}
-      DIGEST_TIME: ${{ vars.DIGEST_TIME || '07:00' }}
-      ENVIRONMENT: production
-      DEPLOYMENT_MODE: free
-      MAX_PAGES: '3'
-      MAX_JOBS: '150'
-      REQUEST_DELAY: '1.5'
+      SCOUT_APP_URL: ${{ vars.SCOUT_APP_URL || 'https://scout-web-47vk.onrender.com' }}
     steps:
-      - name: Check private configuration
-        id: configuration
-        shell: bash
-        run: |
-          if [ -z "$DATABASE_URL" ] || [ -z "$APP_URL" ]; then
-            echo "::notice::Setup pending: add the DATABASE_URL repository secret and SCOUT_APP_URL repository variable. No search was run."
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          echo "ready=true" >> "$GITHUB_OUTPUT"
-          if [ -z "$RESEND_API_KEY" ] || [ -z "$EMAIL_FROM" ] || [ -z "$EMAIL_TO" ]; then
-            echo "::notice::Email setup is incomplete. Searches can run, but no email will be sent."
-          fi
       - uses: actions/checkout@v4
-        if: steps.configuration.outputs.ready == 'true'
       - uses: actions/setup-python@v5
-        if: steps.configuration.outputs.ready == 'true'
         with:
           python-version: '3.12'
-          cache: pip
-      - name: Install runtime dependencies
-        if: steps.configuration.outputs.ready == 'true'
-        run: python -m pip install -r requirements.txt
-      - name: Collect and notify when due
-        if: steps.configuration.outputs.ready == 'true'
-        run: python -m app.scheduled
+      - name: Invoke due work with a short-lived GitHub identity
+        run: python .github/scripts/trigger_due.py

@@ -18,7 +18,11 @@ services:
       - key: DEPLOYMENT_MODE
         value: free
       - key: EMAIL_DELIVERY_EXTERNAL
-        value: "true"
+        value: "false"
+      - key: SCHEDULER_REPOSITORY
+        value: Piotr-Majda/job-monitor
+      - key: SCHEDULER_REPOSITORY_ID
+        value: "1455285333"
       - key: ADMIN_PASSWORD
         generateValue: true
       - key: SESSION_SECRET

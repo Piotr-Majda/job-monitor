@@ -75,7 +75,7 @@ Actual Gmail delivery has **not** been verified in this workspace because sender
 
 ## Free cloud deployment (selected)
 
-The current `render.yaml` creates **one Free Render web service** in Frankfurt. There is no Render database, worker, cron job, or disk. PostgreSQL is hosted on a separate **Neon Free** account, and GitHub Actions runs scheduled collection and email independently of the sleeping web app.
+The current `render.yaml` creates **one Free Render web service** in Frankfurt. There is no Render database, worker, cron job, or disk. PostgreSQL is hosted on a separate **Neon Free** account, and GitHub Actions securely invokes scheduled work on the web app without keeping it online between runs.
 
 Target recurring hosting cost: **USD 0 within provider free-tier quotas**, excluding a custom domain or optional paid upgrades. Hobby is a workspace plan, not a guarantee that every Render resource is free. Do not apply an old three-resource plan: re-plan the current repository commit first.
 
@@ -83,10 +83,7 @@ Target recurring hosting cost: **USD 0 within provider free-tier quotas**, exclu
 
 Create a PostgreSQL project on Neon's **Free** plan, preferably in a European region near Frankfurt. Do not upgrade the account to a paid plan. Obtain a PostgreSQL connection string with TLS (`sslmode=require`) from the Neon console. Keep it private.
 
-Configure the same connection string in two places:
-
-- Render: the web service's `DATABASE_URL` secret environment variable. The Blueprint declares this with `sync: false` so it is never committed.
-- GitHub: repository Actions secret `DATABASE_URL`.
+Configure the connection string only in the Render web service's private `DATABASE_URL` environment setting. The Blueprint declares this with `sync: false` so it is never committed. GitHub Actions never receives database credentials.
 
 The app creates its initial schema at startup under a PostgreSQL advisory lock. Both the web app and scheduled runs use that shared database. Free cloud mode refuses SQLite so a missing connection string cannot silently lose jobs on Render's ephemeral filesystem.
 
@@ -98,15 +95,15 @@ Neon's published Free plan is ongoing, not a trial, but its compute, storage, an
 2. Re-plan and verify **one web service on plan `free`**, with no paid datastore or worker.
 3. Supply `DATABASE_URL` through Render's secure Environment settings or the required Blueprint input. Review the actual plan before applying it.
 4. Deploy. Render generates `ADMIN_PASSWORD` and `SESSION_SECRET`; retrieve the password privately from the service's Environment page to sign in.
-5. Copy the resulting HTTPS service URL. In GitHub repository **Settings → Secrets and variables → Actions → Variables**, set `SCOUT_APP_URL` to that URL.
+5. The workflow defaults to the current HTTPS dashboard URL. If you deploy a fork or change the URL, set GitHub Actions variable `SCOUT_APP_URL` to the new URL and update the Render workflow-trust settings for your repository.
 
-A Free Render service sleeps after 15 minutes without traffic and can take about a minute to wake. No keep-alive traffic is required because scheduled searches run outside Render. Health checks use `/health`, which checks the web process without querying Neon, so frequent probes do not consume database compute. Schema creation is checked at startup; signed-in operators can use `/database-health` for an explicit database check.
+A Free Render service sleeps after 15 minutes without traffic and can take about a minute to wake. No keep-alive traffic is required because scheduled searches are invoked by GitHub Actions. Health checks use `/health`, which checks the web process without querying Neon, so frequent probes do not consume database compute. Schema creation is checked at startup; signed-in operators can use `/database-health` for an explicit database check.
 
 Automatic deploys and Blueprint auto-sync remain disabled. There is no live production URL until deployment completes.
 
 ### 3. Scheduled searches and email
 
-The workflow `.github/workflows/job-monitor.yml` runs `python -m app.scheduled` and then exits. Its schedule is:
+The workflow `.github/workflows/job-monitor.yml` invokes the app using a short-lived GitHub identity and exits when the streamed job completes. `python -m app.scheduled` remains available for manual operator runs. Its schedule is:
 
 - **06:00 Europe/Warsaw:** collect due jobs.
 - **07:00 Europe/Warsaw:** send a due digest.
@@ -114,21 +111,22 @@ The workflow `.github/workflows/job-monitor.yml` runs `python -m app.scheduled` 
 
 The GitHub schedule includes the IANA timezone for daylight-saving changes. The Python scheduler independently checks Warsaw dates/times, collection history, and notification history. Manual **Run workflow** uses the same due-work check.
 
-Required GitHub configuration:
+GitHub Actions uses **OpenID Connect (OIDC)** to invoke `/internal/run-due` on the dashboard. It requests a short-lived token addressed specifically to the app. The app checks GitHub's signature, issuer, audience, expiry, repository name and numeric ID, main branch, exact workflow filename, and event type before executing work. Other repositories, forks, pull requests, unsigned tokens, and anonymous requests cannot trigger the job.
 
-| Type | Name | Value |
-|---|---|---|
-| Actions secret | `DATABASE_URL` | The same Neon connection string used by Render |
-| Actions variable | `SCOUT_APP_URL` | Deployed HTTPS dashboard URL |
-| Actions secret | `EMAIL_TO` | Your Gmail recipient address |
-| Actions secret | `EMAIL_FROM` | An authorized Resend sender |
-| Actions secret | `RESEND_API_KEY` | Resend API key |
+The endpoint streams progress/heartbeats until due work completes. This is a scheduled job invocation, not a keep-alive ping. It works while the dashboard is closed and naturally wakes a sleeping free web service. Database task leases and delivery history prevent overlapping collection and repeated digests.
 
-Do not give Actions the dashboard password or session secret. GitHub's built-in workflow token has only `contents: read`; it is not used to expose the database through a public API.
+**No GitHub repository secrets are required.** Actions has `contents: read` and `id-token: write`; it receives no dashboard password, database credential, or email key. Configure these only in Render's private Environment settings:
 
-Until `DATABASE_URL` and `SCOUT_APP_URL` are configured, the workflow exits with a **setup-pending notice** and performs no collection. This successful setup check is not a successful search. Without email secrets, searches can run but no mail is sent; the workflow logs a notice. Database and provider errors produce a failed scheduled command without logging secret values.
+| Name | Value |
+|---|---|
+| `DATABASE_URL` | Neon PostgreSQL connection string |
+| `EMAIL_TO` | Your Gmail recipient address |
+| `EMAIL_FROM` | An authorized Resend sender |
+| `RESEND_API_KEY` | Resend API key |
 
-Email configuration belongs in **GitHub Actions secrets** for this variant, not in the web service. The dashboard reads delivery outcomes from the shared database. Receiving mail in Gmail does not require inbox access.
+The Blueprint pins `SCHEDULER_REPOSITORY` and `SCHEDULER_REPOSITORY_ID`. A fork must update those to its own name and numeric repository ID, rather than accepting arbitrary GitHub identities. `SCOUT_APP_URL` in GitHub is an optional non-secret URL override.
+
+Without sender settings, collection still runs but no email is sent. The workflow prints a setup notice; delivery outcomes appear in the dashboard. Receiving mail in Gmail does not require inbox access.
 
 ### Free scheduling limitations
 
@@ -163,3 +161,9 @@ uv run pytest -q
 Tests cover source/schema failures, seniority/country filtering, unknown salary, duplicates and persistent review state, independent profiles, database leases, email retries/idempotency, authentication, CSRF, and escaped untrusted content. Real-data collection and browser checks are recorded in `IMPLEMENTATION.md`.
 
 The agreed scope and remaining acceptance checklist are in `docs/iteration-1-agreement.md`.
+
+## Migrating an existing Render database
+
+The runtime supports an explicitly configured one-time application-data migration from inside Render's private network. Deploy with `MIGRATION_READ_ONLY=true` first, and verify `/health` reports read-only mode. Then set private `MIGRATION_TARGET_DATABASE_URL` to a **direct/unpooled** Neon URL. The replacement process copies application tables in one transaction, verifies a full content checksum, resets sequences, saves a private recovery snapshot and receipt in Neon, and serves Neon immediately after verification. It refuses a nonempty destination without a completed receipt and never overwrites already migrated data on restart. No source records are deleted.
+
+After verifying the live app and receipt, set permanent `DATABASE_URL` to the Neon application URL and clear `MIGRATION_TARGET_DATABASE_URL` and `MIGRATION_READ_ONLY`. These migration flags are operational secrets/settings, not committed credentials. Retain the old database until verification and recovery checks are complete; removing a database from a Blueprint does not stop its billing or delete it.
