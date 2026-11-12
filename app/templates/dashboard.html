@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Your personal QA automation opportunity inbox"><title>QA opportunity inbox · Scout</title><link rel="stylesheet" href="/static/app.css"><script defer src="/static/app.js"></script></head>
+<body>
+<aside class="sidebar">
+  <a href="/" class="brand">scout<span>↗</span></a>
+  <div class="workspace"><span class="avatar">M</span><div>My workspace<small>Personal job monitor</small></div><span class="workspace-dot"></span></div>
+  <p class="nav-label">WORKSPACE</p>
+  <nav aria-label="Job views">
+  {% for key,label,icon in [('inbox','Opportunity inbox','▦'),('saved','Saved for later','☆'),('applied','Applied','↗'),('dismissed','Dismissed','⊘'),('outside','Outside profile','≋')] %}
+    <a class="nav-item {% if view==key %}selected{% endif %}" href="/?profile={{ active.id }}&view={{ key }}"><span class="nav-icon">{{ icon }}</span>{{ label }}{% if key=='inbox' %}<span class="nav-count">{{ counts.get('new',0)+counts.get('saved',0) }}</span>{% endif %}</a>
+  {% endfor %}
+  </nav>
+  <div class="sidebar-profile"><p class="nav-label">SEARCH PROFILES</p>{% for p in profiles %}<a class="profile-link {% if p.id==active.id %}current{% endif %}" href="/?profile={{ p.id }}"><span class="small-dot {% if not p.enabled %}muted-dot{% endif %}"></span>{{ p.name }}</a>{% endfor %}<button class="text-button" data-dialog="new-profile">＋ Add search profile</button></div>
+  <div class="sidebar-bottom"><div class="source-icon">J</div><div>Just Join IT<small>Public listings · no login</small></div></div>
+  {% if config.admin_password %}<form method="post" action="/logout" class="logout"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="text-button">Sign out</button></form>{% endif %}
+</aside>
+<main class="main">
+  <header class="topbar"><div class="breadcrumb">My workspace <span>/</span> Opportunity inbox</div><span class="time-zone">◷ Europe / Warsaw</span></header>
+  <div class="content">
+    <div class="page-heading"><div><p class="eyebrow">LESS SEARCHING. BETTER OPPORTUNITIES.</p><h1>Your next move starts here<span>.</span></h1><p class="subtitle">Real jobs. Clear reasons. A shortlist worth your time.</p></div><a class="button secondary source-link" href="https://justjoin.it/job-offers/all-locations/testing" target="_blank" rel="noopener noreferrer">Explore source ↗</a></div>
+    {% if not config.admin_password %}<div class="notice">Local preview · authentication is off. Cloud startup requires a dashboard password and HTTPS.</div>{% endif %}
+    <section class="stats" aria-label="Search summary">
+      <div class="stat"><span class="stat-label">YOUR MATCHES <span>↗</span></span><strong>{{ counts.get('new',0)+counts.get('saved',0) }}</strong><small>Ready to review in your inbox</small></div>
+      <div class="stat"><span class="stat-label">SAVED FOR LATER <span>☆</span></span><strong>{{ counts.get('saved',0) }}</strong><small>A shortlist on your terms</small></div>
+      <div class="stat"><span class="stat-label">LISTINGS COLLECTED <span>≋</span></span><strong>{{ total }}</strong><small>Real descriptions from Just Join IT</small></div>
+      <div class="stat email-stat"><span class="stat-label">YOUR DAILY DIGEST <span>✉</span></span><strong>{{ config.digest_time }}<span> CET / CEST</span></strong><small>{% if config.email_ready %}Email sender configured{% else %}Email setup needed{% endif %}</small></div>
+    </section>
+    <section class="profile-banner" aria-label="Current search profile"><div class="profile-glyph">⌕</div><div class="profile-summary"><span class="eyebrow">ACTIVE SEARCH {% if not active.enabled %}· PAUSED{% endif %}</span><h2>{{ active.name }}</h2><div class="chips">{% for skill in active.criteria.skills %}<span>{{ skill }} required</span>{% endfor %}<span>{{ active.criteria.levels|join(' / ')|title }}</span><span>All Poland · relocation welcome</span><span>Any work arrangement</span></div></div><button class="button secondary" data-dialog="edit-profile">Edit profile</button></section>
+    <div class="body-grid">
+      <section class="jobs-section" aria-labelledby="jobs-title">
+        <div class="section-heading"><div><h2 id="jobs-title">{% if view=='inbox' %}Your opportunity inbox{% elif view=='outside' %}Outside this profile{% else %}{{ view|title }} opportunities{% endif %} <span class="count-pill">{{ rows|length }}</span></h2><p>Prioritized for {{ active.criteria.skills|join(', ') }} &amp; test automation.</p></div><span class="real-badge"><span class="small-dot"></span> Real source data</span></div>
+        <form class="search-form" action="/" method="get"><input type="hidden" name="profile" value="{{ active.id }}"><input type="hidden" name="view" value="{{ view }}"><label class="sr-only" for="search">Search jobs or companies</label><span>⌕</span><input id="search" name="q" value="{{ q }}" placeholder="Search by job title or company…"><button type="submit">Search</button></form>
+        <div class="job-list">
+        {% for match,job in rows %}
+          <article class="job-card">
+            <div class="job-top"><div class="company-monogram">{{ job.company[:1]|upper }}</div><div class="job-title"><p>{{ job.company }}</p><h3><a href="{{ job.url }}" target="_blank" rel="noopener noreferrer">{{ job.title }} <span>↗</span></a></h3></div><span class="match-badge {% if not match.eligible %}excluded{% elif match.assessment.recommendation=='Review' %}review{% endif %}">{{ match.assessment.recommendation }}</span></div>
+            <div class="job-meta"><span>⌖ {{ job.details.locations|join(', ') or 'Location unknown' }}</span><span>◷ {{ job.details.mode|title }}</span><span>◈ {{ job.details.level|title }}</span></div>
+            <div class="salary">{{ job.details|salary }}{% if job.details.contracts %}<span> · {{ job.details.contracts|join(' / ') }}</span>{% endif %}{% if job.details.salary_basis %}<span> · {{ job.details.salary_basis|join(' / ') }}</span>{% endif %}</div>
+            <details class="evidence" open><summary>{% if match.eligible %}Why it fits your search{% else %}Why it is outside your profile{% endif %}</summary><ul>{% for reason in (match.assessment.reasons if match.eligible else match.assessment.exclusions) %}<li>{{ reason }}</li>{% endfor %}</ul></details>
+            <details class="description"><summary>Job description &amp; things to check</summary><ul class="concerns">{% for concern in match.assessment.concerns %}<li>{{ concern }}</li>{% endfor %}</ul><p class="full-description">{{ job.description }}</p><p class="provenance">Posted: {{ job.details.posted_at or 'Unknown' }}<br>First collected: {{ job.first_seen|localtime }} · Last seen: {{ job.last_seen|localtime }}<br>Source: Just Join IT · Dates shown in Europe/Warsaw</p></details>
+            <footer class="job-footer"><span>Found {{ job.first_seen|localtime }}{% if match.status!='new' %} · {{ match.status|title }}{% endif %}</span><form method="post" action="/matches/{{ match.id }}/status"><input type="hidden" name="csrf" value="{{ csrf }}">{% if match.status=='new' %}<button name="status" value="saved" title="Save this job">☆ Save</button>{% else %}<button name="status" value="new">Restore</button>{% endif %}{% if match.status!='dismissed' %}<button name="status" value="dismissed">Dismiss</button>{% endif %}{% if match.status!='applied' %}<button name="status" value="applied">Mark applied</button>{% endif %}</form></footer>
+          </article>
+        {% else %}
+          <div class="empty-state"><div>⌕</div><h3>{% if not total %}Your search is ready to begin{% else %}Nothing in this view yet{% endif %}</h3><p>{% if not total %}Run the collector to bring real public listings into your inbox. Scheduled searches run at {{ config.search_time }} Poland time.{% elif q %}Try a different job title or company name.{% else %}New qualifying listings will appear here after collection. Check the latest scan for coverage and errors.{% endif %}</p></div>
+        {% endfor %}
+        </div><p class="list-note">Showing up to 200 results. “Found” means first discovered by Scout, not newly posted. Recommendations need your review.</p>
+      </section>
+      <aside class="right-rail">
+        <section class="schedule-panel"><div class="panel-icon">↻</div><p class="eyebrow">WORKING IN THE BACKGROUND</p><h2>Your search, on schedule.</h2><p>Fresh opportunities without another tab to keep checking.</p><div class="schedule-row"><span>Daily job search</span><strong>{{ config.search_time }}</strong></div><div class="schedule-row"><span>Email digest</span><strong>{{ config.digest_time }}</strong></div><small>Poland time · daylight saving aware<br>Only new matches. No empty digests.</small></section>
+        <section class="activity-panel"><div class="panel-title"><h2>Collection health</h2><span class="small-dot {% if not runs or runs[0].status!='success' %}muted-dot{% endif %}"></span></div><p class="last-success">Last full success<br><strong>{{ success.finished_at|localtime if success else 'Not yet' }}</strong></p>{% for run in runs[:3] %}<div class="run"><div><span class="run-status {{ run.status }}">{{ run.status|title }}</span><small>{{ run.started_at|localtime }}</small></div><p>{{ run.fetched }} descriptions · {{ run.new_matches }} new matches</p><details><summary>Coverage{% if run.errors %} &amp; issues{% endif %}</summary><p>{{ run.coverage }}</p>{% for error in run.errors %}<p class="error">{{ error }}</p>{% endfor %}</details></div>{% else %}<p>No collection runs yet.</p>{% endfor %}</section>
+        <section class="email-panel"><h2>Email delivery</h2>{% if not config.email_ready %}<span class="setup-badge">Setup needed</span><p>Connect an email sender to deliver your daily digest to Gmail. Inbox access is not needed.</p>{% endif %}{% for delivery in deliveries %}<div class="delivery"><strong>{{ delivery.status|replace('_',' ')|title }}</strong><small>{{ delivery.created_at|localtime }}</small>{% if delivery.error %}<p class="error">{{ delivery.error }}</p>{% endif %}</div>{% endfor %}<p class="fine-print">Jobs are never submitted automatically in this version.</p></section>
+      </aside>
+    </div>
+    <footer class="page-footer"><span>scout ↗ <span>Make room for your next chapter.</span></span><span>Just Join IT · Personal discovery tool</span></footer>
+  </div>
+</main>
+{% for mode in ['edit','new'] %}<dialog id="{{ mode }}-profile"><form method="post" action="/profiles"><div class="dialog-heading"><h2>{{ 'Edit search profile' if mode=='edit' else 'New search profile' }}</h2><button type="button" class="close-dialog" aria-label="Close">×</button></div><p>Each profile has independent matching rules. This version searches Testing roles in Poland on Just Join IT.</p><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="profile_id" value="{{ active.id if mode=='edit' else 0 }}"><label>Profile name<input name="name" maxlength="120" value="{{ active.name if mode=='edit' else '' }}" required></label><label>Required skills, separated by commas<input name="skills" maxlength="250" value="{{ active.criteria.skills|join(', ') if mode=='edit' else 'Python' }}" required></label><label>Seniority, separated by commas<input name="levels" value="{{ active.criteria.levels|join(', ') if mode=='edit' else 'junior, mid' }}" required></label><label class="checkbox-label"><input type="checkbox" name="enabled" value="true" {% if mode=='new' or active.enabled %}checked{% endif %}> Include this profile in collection and digests</label><p>Salary has no minimum. Relevant skill mentions remain eligible even if optional; review the cited evidence. Changes re-evaluate stored listings.</p><button type="submit" class="button primary">Save profile</button></form></dialog>{% endfor %}
+</body></html>
