@@ -7,7 +7,7 @@ Updated: 12 November 2026.
 - Render is connected.
 - The user selected **My Workspace**.
 - The selected workspace currently has no existing services or PostgreSQL databases, so this deployment will not replace an existing application.
-- Source is committed locally on branch `main`.
+- Source is committed and published on branch `main` at https://github.com/Piotr-Majda/job-monitor.
 - `.env`, the collected job database, and dashboard screenshots are excluded from Git.
 
 ## Prepared infrastructure
@@ -25,17 +25,17 @@ Estimated base total: **USD 21.50/month**, before taxes, traffic/build overages,
 
 This document is a preparation record, not approval to apply a deployment plan. The Render Blueprint workflow requires review and explicit authorization of its returned plan before approval.
 
-## Current blocker
+## Source and deployment status
 
-Render needs the source and Blueprint in a remote Git repository. Creating `Piotr-Majda/qa-job-monitor` through the connected GitHub authorization failed with `Resource not accessible by integration (createRepository)`.
+The source and root Blueprint are published in the public repository at https://github.com/Piotr-Majda/job-monitor. A clean initial history excludes local data, credentials, and personal email configuration. The recipient must be configured through deployment environment variables.
 
-An empty public repository is now available at https://github.com/Piotr-Majda/job-monitor. Source will be published with a clean initial history and without personal configuration. No Blueprint, paid infrastructure, or production deployment has been created yet.
+The connected Render workflow has created the Blueprint definition. No paid resources or production deployment have been applied. Consult the Render Dashboard for current account requirements and plan status before proceeding.
 
 ## Next actions
 
-1. Obtain the repository URL and confirm it is accessible to the GitHub connection and Render's Git provider.
-2. Push the committed source and Blueprint, excluding local data and secrets.
-3. Create a Blueprint with automatic syncing disabled and `existingResources=create_new`, then inspect the returned plan.
+1. Confirm the public source repository remains accessible to Render.
+2. Complete any account setup required by Render; keep secrets and payment details out of the repository and chat.
+3. Plan the existing Blueprint with automatic syncing disabled, then inspect the returned plan.
 4. Present the actual plan and request authorization to apply it, as required by Render's Blueprint tool.
 5. After authorization, approve, monitor deployment, and verify HTTPS authentication, database persistence, and real job collection.
 6. Configure Resend sender secrets without placing them in Git or chat, and verify delivery to your-address@gmail.com.

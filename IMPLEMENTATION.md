@@ -35,7 +35,7 @@ During Docker verification, intermediate images exhausted the small workspace di
 
 ## Still required before declaring the cloud iteration complete
 
-1. Render is now connected and My Workspace is confirmed. Provide/create an accessible remote repository; the GitHub connection rejected repository creation. Then review and approve the actual Render Blueprint plan before deployment.
+1. Render is now connected and My Workspace is confirmed. Source is now published at https://github.com/Piotr-Majda/job-monitor. The Blueprint exists; account setup, successful planning, review, and approval remain before deployment.
 2. Configure a Resend account, API key, and authorized sender through secret environment settings. Sender keys are absent; no live email was sent.
 3. Verify a test digest actually arrives at the user's Gmail address and its dashboard links use the deployed HTTPS URL.
 4. Verify scheduled collection and email in the deployed worker, independent of the user's PC.
