@@ -1,3 +1,5 @@
+> 13 November 2026: Neon migration is verified and the live Render dashboard is on Free. Permanent connection and recipient settings are private in Render. GitHub OIDC invocation is authenticated and has completed a real search successfully. The current regression suite has 45 passing tests. The first end-to-end cloud run succeeded with 149 collected jobs, 16 qualifying matches, and no collection errors. Legacy paid database cleanup and email-provider setup remain separate account actions; see DEPLOYMENT.md.
+
 > Deployment update: the user selected the free variant. The current root Blueprint contains only a Free Render dashboard; Neon Free PostgreSQL and GitHub Actions replace the paid database and worker. See README.md and DEPLOYMENT.md for current setup. The earlier multi-service deployment below is historical and must not be applied.
 
 # Iteration 1 implementation record
@@ -66,3 +68,17 @@ No paid services have been provisioned and no live production dashboard URL exis
 - `.env.example`: setup values with the agreed recipient; real sender secrets are not included.
 
 The downloadable archive includes these real-data artifacts for local testing. Do not commit the database, personal environment files, or future sender secrets to a public repository.
+
+## Final cloud migration verification — 13 November 2026
+
+- Render Free and Neon Free are live; the dashboard is writable on Neon after a permanent connection update and restart.
+- The migration receipt verifies the original cloud search profile. Source cloud jobs/reviews/deliveries were empty; no history was discarded.
+- The old Render database remains unused and is not required by the running application. It still incurs charges until the account owner deletes it; the connected Render toolset does not expose deletion.
+- A real GitHub workflow invocation completed successfully in about seven minutes: 149 descriptions, 16 qualifying matches, no collection errors.
+- Verified run: https://github.com/Piotr-Majda/job-monitor/actions/runs/43384022795
+- The workflow supports the account's custom OIDC subject while validating signed repository ID/name, main branch, exact workflow, issuer, audience, and expiry. Anonymous calls return HTTP 401.
+- No database or email credentials are stored in the public repository or GitHub Actions.
+- No digest was sent: an authorized Resend sender and API key still need to be configured privately in Render. The recipient is configured privately.
+- Automated tests: 45 passed. One upstream Starlette TestClient deprecation warning remains. GitHub currently runs the older checkout/setup-python action versions using Node 24 compatibility and reports a deprecation notice; the verified run succeeded.
+
+This verifies an actual workflow invocation; it does not guarantee exact free-tier scheduling times.

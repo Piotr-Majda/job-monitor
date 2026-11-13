@@ -1,33 +1,30 @@
-# Current deployment: free hobby variant
+# Deployment status — 13 November 2026
 
-Updated: 12 November 2026.
+## Live application
 
-The user selected the **free variant**, replacing the previously planned USD 21.50/month multi-service configuration. No paid resources were approved or deployed.
+- Dashboard: https://scout-web-47vk.onrender.com
+- Render web service: **Free**, Frankfurt; automatic deploys and Blueprint auto-sync are disabled.
+- Database: **Neon Free**, Frankfurt, with automatic scale-to-zero.
+- Permanent database connection is stored only in Render's private environment settings.
+- The database migration has completed, the checksum was verified, and the dashboard is writable on Neon.
+- Migration flags have been cleared. Restarting the application no longer depends on the old database.
 
-## Selected resources
+## Migration verification
 
-- One Free Render web service in Frankfurt, using the root `render.yaml`.
-- An external Neon **Free** PostgreSQL project, shared by the dashboard and scheduled tasks.
-- GitHub Actions in the public repository for 06:00 collection, 07:00 email, and an 08:17 recovery check, using Europe/Warsaw time. Invocations use verified short-lived GitHub OIDC tokens; all credentials stay in Render.
-- Resend email delivery within its free allowance, once an authorized sender is configured.
+The old cloud database contained one search profile and no collected jobs, reviews, or email deliveries. These were copied in an atomic transaction. The private Neon database retains a `render-to-neon-v1` receipt and recovery snapshot. The deployed `/health` endpoint confirms `database_provider=neon` and `migration_read_only=false` without making database queries.
 
-Target recurring hosting cost is **USD 0 within free-tier limits**. The dashboard can cold-start, scheduled jobs can be delayed or dropped, and GitHub disables inactive public-repository schedules after 60 days.
+## Scheduled searches
 
-## Source and account state
+GitHub Actions invokes the app with a short-lived signed identity. The app validates issuer, audience, expiry, repository name and numeric ID, branch, exact workflow, and event type. Custom GitHub subject templates are supported because authorization uses explicit signed identity claims rather than assuming the default subject format. No database or email credential is stored in GitHub.
 
-Repository: https://github.com/Piotr-Majda/job-monitor, branch `main`.
+The first live invocation authenticated successfully and completed without errors: **149 real Just Join IT descriptions and 16 qualifying matches** were saved in Neon. Verified workflow: https://github.com/Piotr-Majda/job-monitor/actions/runs/43384022795. The run reported that email is not configured, so no digest was sent.
 
-Render is connected and **My Workspace** is confirmed. The existing Blueprint must be re-planned against this commit before approval. Earlier plans with a database and worker are superseded; do not apply them.
+Schedules target 06:00 collection, 07:00 email, and 08:17 recovery in Europe/Warsaw. Free GitHub schedules can be delayed or dropped and are disabled after 60 days without repository activity. The Free Render app can take about a minute to wake.
 
-Neon is connected and a Free project has been created in Frankfurt. The external database connection string must be provided privately to Render. Email sender secrets are still needed. No secrets or personal recipient address belong in this public repository.
+## Remaining account setup
 
-## Deployment checklist
+1. **Remove the unused paid Render database to stop its remaining charges.** Removing it from a Blueprint does not delete it. The connected Render toolset has no deletion operation; the account owner must do this in the Render Dashboard after reviewing the verified migration.
+2. Configure an authorized Resend sender and API key privately in Render if they are not yet present. The recipient has been configured privately. No API key or personal email address belongs in this public repository.
+3. Verify a delivered test email once sender configuration is complete.
 
-1. Connect Neon and create/select a project explicitly on the Free plan.
-2. Supply its TLS connection string privately as `DATABASE_URL` in Render.
-3. Review the new Render plan: exactly one Free web service, no paid database/worker/cron/disk.
-4. Apply only the reviewed, authorized plan; verify HTTPS login and database-backed dashboard data.
-5. Confirm the workflow URL and repository identity pins, and configure recipient/sender/API-key settings privately in Render.
-6. Run the Actions workflow, verify real descriptions persist, and verify one actual email reaches Gmail.
-
-See README.md for detailed setup and provider limitations.
+The target recurring application hosting cost is USD 0 within provider free quotas, but the old paid Render database continues billing until it is deleted. Do not delete the Neon project or the Free web service.
