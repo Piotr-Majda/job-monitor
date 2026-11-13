@@ -23,8 +23,8 @@ Schedules target 06:00 collection, 07:00 email, and 08:17 recovery in Europe/War
 
 ## Remaining account setup
 
-1. **Remove the unused paid Render database to stop its remaining charges.** Removing it from a Blueprint does not delete it. The connected Render toolset has no deletion operation; the account owner must do this in the Render Dashboard after reviewing the verified migration.
+1. **Old paid Render database removal is complete and verified.** The Render account reports no PostgreSQL instances; the web service is Free and continues to read/write Neon.
 2. Configure an authorized Resend sender and API key privately in Render if they are not yet present. The recipient has been configured privately. No API key or personal email address belongs in this public repository.
 3. Verify a delivered test email once sender configuration is complete.
 
-The target recurring application hosting cost is USD 0 within provider free quotas, but the old paid Render database continues billing until it is deleted. Do not delete the Neon project or the Free web service.
+The target recurring application hosting cost is USD 0 within provider free quotas, and deletion of the old paid Render database has been verified. Do not delete the Neon project or the Free web service.

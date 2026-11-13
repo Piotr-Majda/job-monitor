@@ -1,4 +1,4 @@
-> 13 November 2026: Neon migration is verified and the live Render dashboard is on Free. Permanent connection and recipient settings are private in Render. GitHub OIDC invocation is authenticated and has completed a real search successfully. The current regression suite has 45 passing tests. The first end-to-end cloud run succeeded with 149 collected jobs, 16 qualifying matches, and no collection errors. Legacy paid database cleanup and email-provider setup remain separate account actions; see DEPLOYMENT.md.
+> 13 November 2026: Neon migration is verified and the live Render dashboard is on Free. Permanent connection and recipient settings are private in Render. GitHub OIDC invocation is authenticated and has completed a real search successfully. The current regression suite has 45 passing tests. The first end-to-end cloud run succeeded with 149 collected jobs, 16 qualifying matches, and no collection errors. Legacy paid database deletion is verified; email-provider setup remains. see DEPLOYMENT.md.
 
 > Deployment update: the user selected the free variant. The current root Blueprint contains only a Free Render dashboard; Neon Free PostgreSQL and GitHub Actions replace the paid database and worker. See README.md and DEPLOYMENT.md for current setup. The earlier multi-service deployment below is historical and must not be applied.
 
@@ -82,3 +82,7 @@ The downloadable archive includes these real-data artifacts for local testing. D
 - Automated tests: 45 passed. One upstream Starlette TestClient deprecation warning remains. GitHub currently runs the older checkout/setup-python action versions using Node 24 compatibility and reports a deprecation notice; the verified run succeeded.
 
 This verifies an actual workflow invocation; it does not guarantee exact free-tier scheduling times.
+
+## Legacy resource cleanup verified — 13 November 2026
+
+The user deleted the old Render database. A subsequent account check returned no Render PostgreSQL instances. The web service remains on Free, `/health` reports a writable Neon connection, and Neon still contains 149 jobs and 16 qualifying matches. The application no longer depends on any paid Render database. Email sender configuration remains outstanding.
