@@ -23,8 +23,11 @@ def verify_workflow_token(authorization):
     except jwt.PyJWTError as error:
         raise HTTPException(403, "GitHub identity verification failed: " + type(error).__name__) from None
     expected = settings.scheduler_repository
+    # GitHub permits custom subject templates. Authorize the explicit signed
+    # repository ID/name, branch and workflow claims rather than assuming the
+    # account uses GitHub's default subject string. `sub` remains required above.
     requirements = {"repository": expected, "repository_id": settings.scheduler_repository_id,
-                    "ref": "refs/heads/main", "sub": f"repo:{expected}:ref:refs/heads/main",
+                    "ref": "refs/heads/main",
                     "workflow_ref": f"{expected}/.github/workflows/job-monitor.yml@refs/heads/main"}
     mismatches = [key for key, value in requirements.items() if str(claims.get(key)) != value]
     if claims.get("event_name") not in ("schedule", "workflow_dispatch"):

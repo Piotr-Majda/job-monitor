@@ -34,6 +34,13 @@ def test_expected_signed_workflow_is_accepted(identity):
     assert oidc.verify_workflow_token(identity())["repository_id"] == "1455285333"
 
 
+def test_custom_subject_still_requires_explicit_repository_identity(identity):
+    token = identity(sub="repository_id:1455285333:workflow:daily-job-monitor")
+    assert oidc.verify_workflow_token(token)["repository_id"] == "1455285333"
+    with pytest.raises(HTTPException):
+        oidc.verify_workflow_token(identity(sub="repository_id:1455285333:workflow:daily-job-monitor", repository_id="another-repo"))
+
+
 @pytest.mark.parametrize("changes", [
     {"repository": "attacker/job-monitor"}, {"repository_id": "another-repo"},
     {"ref": "refs/heads/untrusted"}, {"workflow_ref": "Piotr-Majda/job-monitor/other.yml@refs/heads/main"},
