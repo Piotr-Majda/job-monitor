@@ -39,7 +39,14 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except urllib.error.HTTPError as error:
-        print(f"Scheduled invocation returned HTTP {error.code}. Check the Render deployment and workflow trust settings.", file=sys.stderr)
+        stage = "GitHub identity issuance" if urllib.parse.urlparse(error.url).hostname == "token.actions.githubusercontent.com" else "Render scheduled invocation"
+        print(f"{stage} returned HTTP {error.code}.", file=sys.stderr)
+        try:
+            detail = json.loads(error.read(4096)).get("detail", "")
+            if isinstance(detail, str) and detail.startswith(("GitHub identity verification failed", "This workflow is not authorized", "Scheduled invocation is not configured", "A GitHub Actions identity token is required")):
+                print(detail, file=sys.stderr)
+        except (ValueError, AttributeError):
+            pass
         raise SystemExit(1)
     except Exception as error:
         print(f"Scheduled invocation failed ({type(error).__name__}). No credentials were logged.", file=sys.stderr)

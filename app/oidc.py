@@ -20,14 +20,16 @@ def verify_workflow_token(authorization):
         claims = jwt.decode(token, key, algorithms=["RS256"], audience=settings.app_url,
                             issuer=ISSUER, leeway=15,
                             options={"require": ["exp", "iat", "nbf", "sub", "jti"]})
-    except jwt.PyJWTError:
-        raise HTTPException(403, "GitHub identity verification failed") from None
+    except jwt.PyJWTError as error:
+        raise HTTPException(403, "GitHub identity verification failed: " + type(error).__name__) from None
     expected = settings.scheduler_repository
-    if (claims.get("repository") != expected
-            or str(claims.get("repository_id")) != settings.scheduler_repository_id
-            or claims.get("ref") != "refs/heads/main"
-            or claims.get("sub") != f"repo:{expected}:ref:refs/heads/main"
-            or claims.get("workflow_ref") != f"{expected}/.github/workflows/job-monitor.yml@refs/heads/main"
-            or claims.get("event_name") not in ("schedule", "workflow_dispatch")):
-        raise HTTPException(403, "This workflow is not authorized")
+    requirements = {"repository": expected, "repository_id": settings.scheduler_repository_id,
+                    "ref": "refs/heads/main", "sub": f"repo:{expected}:ref:refs/heads/main",
+                    "workflow_ref": f"{expected}/.github/workflows/job-monitor.yml@refs/heads/main"}
+    mismatches = [key for key, value in requirements.items() if str(claims.get(key)) != value]
+    if claims.get("event_name") not in ("schedule", "workflow_dispatch"):
+        mismatches.append("event_name")
+    if mismatches:
+        # Report claim names, never token contents or credentials.
+        raise HTTPException(403, "This workflow is not authorized: " + ", ".join(mismatches))
     return claims
